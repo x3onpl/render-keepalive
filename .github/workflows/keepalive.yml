@@ -1,1 +1,21 @@
+name: Keep Render Alive
 
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # co 10 minut przez całą dobę
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render only in Warsaw time window
+        run: |
+          TZ="Europe/Warsaw"
+          hour=$(date +"%H" -d "TZ=\"Europe/Warsaw\"")
+          minute=$(date +"%M" -d "TZ=\"Europe/Warsaw\"")
+          if [ "$hour" -ge 6 ] && { [ "$hour" -lt 23 ] || { [ "$hour" -eq 23 ] && [ "$minute" -le 30 ]; }; }; then
+            curl -s https://testbottest.onrender.com/
+          else
+            echo "Poza dozwolonym czasem, nie pinguję."
+          fi
