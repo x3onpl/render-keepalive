@@ -2,19 +2,42 @@ name: Keep Render Alive
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # co 10 minut przez całą dobę
+    # Uruchamia się co 5 minut, każdego dnia.
+    - cron: '*/5 * * * *'
+  # Umożliwia ręczne uruchomienie z poziomu interfejsu GitHub Actions.
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    
+    # Przechowuj adres URL w zmiennej środowiskowej dla większej elastyczności.
+    # Jeśli chcesz, możesz go przenieść do "Secrets" w ustawieniach repozytorium.
+    env:
+      TARGET_URL: https://testbottest.onrender.com/
+
     steps:
-      - name: Ping Render only in Warsaw time window
+      - name: Ping Render service within the Warsaw time window
         run: |
-          hour=$(TZ="Europe/Warsaw" date +"%H")
-          minute=$(TZ="Europe/Warsaw" date +"%M")
-          if [ "$hour" -ge 6 ] && { [ "$hour" -lt 23 ] || { [ "$hour" -eq 23 ] && [ "$minute" -le 30 ]; }; }; then
-            curl -s https://testbottest.onrender.com/
+          # Pobierz aktualny czas (godzina i minuta) w strefie czasowej Warszawy.
+          # Format HHMM (np. 0930 lub 2315) pozwala na proste porównanie liczbowe.
+          warsaw_time=$(TZ="Europe/Warsaw" date +"%H%M")
+
+          # Sprawdź, czy obecny czas mieści się w przedziale od 06:00 do 23:30.
+          # Ten warunek jest znacznie czytelniejszy niż zagnieżdżone operatory.
+          if [[ "$warsaw_time" -ge "0600" && "$warsaw_time" -le "2330" ]]; then
+            echo "Pinging ${TARGET_URL} at $(TZ='Europe/Warsaw' date)..."
+            
+            # Wyślij zapytanie do serwisu.
+            # Flagi -fsS:
+            # -f (--fail): Zakończ z błędem, jeśli serwer zwróci status HTTP 4xx lub 5xx.
+            # -s (--silent): Ukryj pasek postępu.
+            # -S (--show-error): Pokaż komunikat o błędzie, nawet gdy używasz -s.
+            # Dzięki temu workflow zakończy się niepowodzeniem, jeśli strona nie odpowie poprawnie.
+            curl -fsS "${TARGET_URL}" > /dev/null
+            
+            echo "Ping successful."
           else
-            echo "Poza dozwolonym czasem, nie pinguję."
+            # Informacja, że ping został pominięty z powodu pory dnia.
+            echo "Outside the allowed time window. Skipping ping."
           fi
